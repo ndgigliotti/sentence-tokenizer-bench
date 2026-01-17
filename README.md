@@ -15,15 +15,18 @@ Benchmarks comparing speed and accuracy of Python sentence tokenization librarie
 ## Installation
 
 ```bash
-# Core tokenizers only
-uv pip install -e .
+# Create venv and install core tokenizers
+uv venv && uv sync
 
 # Include wtpsplit (PyTorch)
-uv pip install -e ".[wtpsplit]"
+uv sync --extra wtpsplit
 
 # Include wtpsplit with ONNX Runtime (faster)
-uv pip install -e ".[wtpsplit-ort-gpu]"  # GPU
-uv pip install -e ".[wtpsplit-ort-cpu]"  # CPU only
+uv sync --extra wtpsplit-ort-gpu  # GPU
+uv sync --extra wtpsplit-ort-cpu  # CPU only
+
+# All optional dependencies
+uv sync --all-extras
 ```
 
 ## Usage

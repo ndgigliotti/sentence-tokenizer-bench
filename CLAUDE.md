@@ -10,9 +10,10 @@ Benchmarking suite comparing speed and accuracy of Python sentence tokenization 
 
 ```bash
 # Install (use uv, not pip)
-uv pip install -e .                    # Core tokenizers only
-uv pip install -e ".[wtpsplit]"        # Include wtpsplit (PyTorch)
-uv pip install -e ".[wtpsplit-ort-gpu]"  # wtpsplit with ONNX Runtime GPU
+uv venv && uv sync                     # Core tokenizers only
+uv sync --extra wtpsplit               # Include wtpsplit (PyTorch)
+uv sync --extra wtpsplit-ort-gpu       # wtpsplit with ONNX Runtime GPU
+uv sync --all-extras                   # All optional dependencies
 
 # Run benchmarks
 python benchmark.py                    # Run all (speed + edge cases)
