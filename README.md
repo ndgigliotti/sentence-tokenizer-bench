@@ -50,6 +50,12 @@ python benchmark.py --corpus-only ud
 
 # Customize speed benchmark
 python benchmark.py --speed -n 5000 -t simple
+
+# Generate charts
+python benchmark.py --speed --plot                    # Speed chart
+python benchmark.py --corpus --plot                   # Corpus F1 chart
+python benchmark.py --speed --corpus --plot           # Both charts
+python benchmark.py --plot --plot-dir ./results       # Custom output dir
 ```
 
 ## Results

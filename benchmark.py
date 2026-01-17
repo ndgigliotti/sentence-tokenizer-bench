@@ -172,6 +172,48 @@ def load_ud_english() -> list[list[str]]:
     return documents
 
 
+def load_brown() -> list[list[str]]:
+    """Load NLTK's Brown corpus as list of documents, each a list of sentences."""
+    import nltk
+
+    try:
+        nltk.data.find("corpora/brown")
+    except LookupError:
+        print("  Downloading NLTK Brown corpus...")
+        nltk.download("brown", quiet=True)
+
+    from nltk.corpus import brown
+
+    documents = []
+    for fileid in brown.fileids():
+        sentences = [" ".join(sent) for sent in brown.sents(fileid)]
+        if sentences:
+            documents.append(sentences)
+
+    return documents
+
+
+def load_reuters() -> list[list[str]]:
+    """Load NLTK's Reuters corpus as list of documents, each a list of sentences."""
+    import nltk
+
+    try:
+        nltk.data.find("corpora/reuters")
+    except LookupError:
+        print("  Downloading NLTK Reuters corpus...")
+        nltk.download("reuters", quiet=True)
+
+    from nltk.corpus import reuters
+
+    documents = []
+    for fileid in reuters.fileids():
+        sentences = [" ".join(sent) for sent in reuters.sents(fileid)]
+        if sentences:
+            documents.append(sentences)
+
+    return documents
+
+
 def benchmark_blingfire(texts: list[str]) -> BenchmarkResult:
     import blingfire as bf
 
@@ -508,7 +550,7 @@ def get_tokenizers() -> dict[str, callable]:
 def run_corpus_benchmark(corpora: list[str] | None = None) -> list[CorpusResult]:
     """Run evaluation on real corpora with ground truth."""
     if corpora is None:
-        corpora = ["treebank", "ud"]
+        corpora = ["treebank", "ud", "brown", "reuters"]
 
     results = []
 
@@ -523,6 +565,16 @@ def run_corpus_benchmark(corpora: list[str] | None = None) -> list[CorpusResult]
         print("\nLoading UD English EWT corpus...")
         corpus_data["ud"] = load_ud_english()
         print(f"  Loaded {len(corpus_data['ud'])} documents")
+
+    if "brown" in corpora:
+        print("\nLoading NLTK Brown corpus...")
+        corpus_data["brown"] = load_brown()
+        print(f"  Loaded {len(corpus_data['brown'])} documents")
+
+    if "reuters" in corpora:
+        print("\nLoading NLTK Reuters corpus...")
+        corpus_data["reuters"] = load_reuters()
+        print(f"  Loaded {len(corpus_data['reuters'])} documents")
 
     # Get tokenizers
     print("\nInitializing tokenizers...")
@@ -587,6 +639,102 @@ def print_corpus_results(results: list[CorpusResult]) -> None:
 
         for r in corpus_results:
             print(f"{r.name:<25} {r.precision:.4f}       {r.recall:.4f}       {r.f1:.4f}")
+
+
+def plot_speed_results(results: list[BenchmarkResult], output_path: str = "speed_benchmark.png") -> None:
+    """Generate horizontal bar chart for speed benchmark results."""
+    import matplotlib.pyplot as plt
+
+    # Sort by speed (fastest first)
+    results = sorted(results, key=lambda r: r.ms_per_text)
+
+    names = [r.name for r in results]
+    times = [r.ms_per_text for r in results]
+
+    # Color coding: green for fast, yellow for medium, red for slow
+    colors = []
+    for t in times:
+        if t < 0.5:
+            colors.append("#2ecc71")  # green
+        elif t < 2.0:
+            colors.append("#f39c12")  # orange
+        else:
+            colors.append("#e74c3c")  # red
+
+    fig, ax = plt.subplots(figsize=(10, max(6, len(results) * 0.4)))
+
+    bars = ax.barh(names, times, color=colors, edgecolor="white", linewidth=0.5)
+
+    # Add value labels
+    for bar, time_val in zip(bars, times):
+        ax.text(bar.get_width() + max(times) * 0.01, bar.get_y() + bar.get_height() / 2,
+                f"{time_val:.3f}ms", va="center", fontsize=9)
+
+    ax.set_xlabel("Time per text (ms)", fontsize=11)
+    ax.set_title("Sentence Tokenizer Speed Comparison", fontsize=13, fontweight="bold")
+    ax.invert_yaxis()  # Fastest at top
+    ax.set_xlim(0, max(times) * 1.15)
+
+    # Clean up spines
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    print(f"\nSpeed chart saved to: {output_path}")
+    plt.close()
+
+
+def plot_corpus_results(results: list[CorpusResult], output_path: str = "corpus_benchmark.png") -> None:
+    """Generate grouped bar chart for corpus evaluation results."""
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    # Group by corpus
+    corpora = sorted(set(r.corpus for r in results))
+
+    # Get all unique tokenizer names and sort by average F1
+    all_names = sorted(set(r.name for r in results))
+    avg_f1 = {name: np.mean([r.f1 for r in results if r.name == name]) for name in all_names}
+    all_names = sorted(all_names, key=lambda n: avg_f1[n], reverse=True)
+
+    # Build data matrix
+    f1_data = {corpus: {} for corpus in corpora}
+    for r in results:
+        f1_data[r.corpus][r.name] = r.f1
+
+    x = np.arange(len(all_names))
+    width = 0.8 / len(corpora)
+
+    fig, ax = plt.subplots(figsize=(12, max(6, len(all_names) * 0.35)))
+
+    colors = ["#3498db", "#e74c3c", "#2ecc71", "#9b59b6"]
+
+    for i, corpus in enumerate(corpora):
+        f1_values = [f1_data[corpus].get(name, 0) for name in all_names]
+        offset = (i - len(corpora) / 2 + 0.5) * width
+        bars = ax.barh(x + offset, f1_values, width * 0.9, label=corpus.upper(),
+                       color=colors[i % len(colors)], edgecolor="white", linewidth=0.5)
+
+    ax.set_xlabel("F1 Score", fontsize=11)
+    ax.set_title("Sentence Boundary Detection - Corpus Evaluation", fontsize=13, fontweight="bold")
+    ax.set_yticks(x)
+    ax.set_yticklabels(all_names)
+    ax.invert_yaxis()
+    ax.set_xlim(0, 1.05)
+    ax.legend(loc="lower right")
+
+    # Add vertical line at F1=0.9 as reference
+    ax.axvline(x=0.9, color="gray", linestyle="--", linewidth=0.8, alpha=0.7)
+
+    # Clean up spines
+    ax.spines["top"].set_visible(False)
+    ax.spines["right"].set_visible(False)
+
+    plt.tight_layout()
+    plt.savefig(output_path, dpi=150, bbox_inches="tight")
+    print(f"\nCorpus chart saved to: {output_path}")
+    plt.close()
 
 
 def run_accuracy_test() -> None:
@@ -664,8 +812,10 @@ def main():
     parser.add_argument("--speed", action="store_true", help="Run speed benchmarks")
     parser.add_argument("--corpus", action="store_true", help="Run evaluation on real corpora (treebank + UD)")
     parser.add_argument(
-        "--corpus-only", choices=["treebank", "ud"], help="Run only specific corpus evaluation"
+        "--corpus-only", choices=["treebank", "ud", "brown", "reuters"], help="Run only specific corpus evaluation"
     )
+    parser.add_argument("--plot", action="store_true", help="Generate charts (PNG files)")
+    parser.add_argument("--plot-dir", type=str, default=".", help="Directory for chart output")
     args = parser.parse_args()
 
     # Default to speed + accuracy if nothing specified
@@ -673,17 +823,31 @@ def main():
         args.accuracy = True
         args.speed = True
 
+    speed_results = None
+    corpus_results = None
+
     if args.speed:
-        results = run_speed_benchmark(args.num_texts, args.text_type)
-        print_results(results)
+        speed_results = run_speed_benchmark(args.num_texts, args.text_type)
+        print_results(speed_results)
 
     if args.accuracy:
         run_accuracy_test()
 
     if args.corpus or args.corpus_only:
-        corpora = [args.corpus_only] if args.corpus_only else ["treebank", "ud"]
-        results = run_corpus_benchmark(corpora)
-        print_corpus_results(results)
+        corpora = [args.corpus_only] if args.corpus_only else None  # None = all corpora
+        corpus_results = run_corpus_benchmark(corpora)
+        print_corpus_results(corpus_results)
+
+    # Generate charts if requested
+    if args.plot:
+        plot_dir = Path(args.plot_dir)
+        plot_dir.mkdir(parents=True, exist_ok=True)
+
+        if speed_results:
+            plot_speed_results(speed_results, str(plot_dir / "speed_benchmark.png"))
+
+        if corpus_results:
+            plot_corpus_results(corpus_results, str(plot_dir / "corpus_benchmark.png"))
 
 
 if __name__ == "__main__":

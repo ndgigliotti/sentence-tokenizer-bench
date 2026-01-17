@@ -22,6 +22,7 @@ python benchmark.py --accuracy         # Edge case accuracy only
 python benchmark.py --corpus           # Corpus evaluation (treebank + UD)
 python benchmark.py --corpus-only ud   # Single corpus only
 python benchmark.py --speed -n 5000 -t simple  # Custom: 5000 simple texts
+python benchmark.py --speed --corpus --plot    # Generate PNG charts
 ```
 
 ## Architecture
