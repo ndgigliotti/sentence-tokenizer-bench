@@ -29,16 +29,23 @@ uv pip install -e ".[wtpsplit-ort-cpu]"  # CPU only
 ## Usage
 
 ```bash
-# Run all benchmarks
+# Run all benchmarks (speed + edge case accuracy)
 python benchmark.py
 
 # Speed only
 python benchmark.py --speed
 
-# Accuracy only
+# Edge case accuracy only
 python benchmark.py --accuracy
 
-# Customize
+# Corpus evaluation (NLTK treebank + UD English)
+python benchmark.py --corpus
+
+# Single corpus evaluation
+python benchmark.py --corpus-only treebank
+python benchmark.py --corpus-only ud
+
+# Customize speed benchmark
 python benchmark.py --speed -n 5000 -t simple
 ```
 
