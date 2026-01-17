@@ -102,6 +102,75 @@ def benchmark_syntok(texts: list[str]) -> BenchmarkResult:
     return BenchmarkResult("syntok", elapsed, len(texts), sentences)
 
 
+def benchmark_spacy_sentencizer(texts: list[str]) -> BenchmarkResult:
+    """Benchmark spaCy's rule-based sentencizer (no model needed)."""
+    try:
+        import spacy
+        from spacy.lang.en import English
+    except ImportError:
+        return None
+
+    nlp = English()
+    nlp.add_pipe("sentencizer")
+
+    start = time.perf_counter()
+    for t in texts:
+        doc = nlp(t)
+        list(doc.sents)  # Force evaluation
+    elapsed = time.perf_counter() - start
+
+    doc = nlp(texts[0])
+    sentences = [sent.text for sent in doc.sents]
+    return BenchmarkResult("spaCy sentencizer", elapsed, len(texts), sentences)
+
+
+def benchmark_spacy_senter(texts: list[str]) -> BenchmarkResult:
+    """Benchmark spaCy's trained sentence segmenter."""
+    try:
+        import spacy
+    except ImportError:
+        return None
+
+    try:
+        nlp = spacy.load("en_core_web_sm", disable=["ner", "lemmatizer", "textcat"])
+    except OSError:
+        print("  Warning: en_core_web_sm not installed")
+        return None
+
+    start = time.perf_counter()
+    for t in texts:
+        doc = nlp(t)
+        list(doc.sents)
+    elapsed = time.perf_counter() - start
+
+    doc = nlp(texts[0])
+    sentences = [sent.text for sent in doc.sents]
+    return BenchmarkResult("spaCy senter", elapsed, len(texts), sentences)
+
+
+def benchmark_stanza(texts: list[str]) -> BenchmarkResult:
+    """Benchmark Stanford Stanza tokenizer."""
+    try:
+        import stanza
+    except ImportError:
+        return None
+
+    try:
+        nlp = stanza.Pipeline("en", processors="tokenize", verbose=False)
+    except Exception as e:
+        print(f"  Warning: stanza failed to initialize: {e}")
+        return None
+
+    start = time.perf_counter()
+    for t in texts:
+        doc = nlp(t)
+    elapsed = time.perf_counter() - start
+
+    doc = nlp(texts[0])
+    sentences = [sent.text for sent in doc.sentences]
+    return BenchmarkResult("stanza", elapsed, len(texts), sentences)
+
+
 def benchmark_wtpsplit_pytorch(texts: list[str], device: str = "cpu") -> BenchmarkResult:
     try:
         from wtpsplit import SaT
@@ -184,6 +253,23 @@ def run_speed_benchmark(num_texts: int = 1000, text_type: str = "complex") -> li
     print("  Running syntok...")
     results.append(benchmark_syntok(texts))
 
+    # spaCy variants
+    print("  Running spaCy sentencizer...")
+    result = benchmark_spacy_sentencizer(texts)
+    if result:
+        results.append(result)
+
+    print("  Running spaCy senter...")
+    result = benchmark_spacy_senter(texts)
+    if result:
+        results.append(result)
+
+    # Stanza
+    print("  Running stanza...")
+    result = benchmark_stanza(texts)
+    if result:
+        results.append(result)
+
     # Optional wtpsplit variants
     print("  Running wtpsplit (PyTorch CPU)...")
     result = benchmark_wtpsplit_pytorch(texts, device="cpu")
@@ -219,6 +305,32 @@ def run_accuracy_test() -> None:
         "NLTK": lambda t: __import__("nltk").sent_tokenize(t),
         "pySBD": lambda t: __import__("pysbd").Segmenter(language="en", clean=False).segment(t),
     }
+
+    # Add spaCy if available
+    try:
+        import spacy
+        from spacy.lang.en import English
+
+        nlp_sentencizer = English()
+        nlp_sentencizer.add_pipe("sentencizer")
+        tokenizers["spaCy sentencizer"] = lambda t: [s.text for s in nlp_sentencizer(t).sents]
+
+        try:
+            nlp_senter = spacy.load("en_core_web_sm", disable=["ner", "lemmatizer", "textcat"])
+            tokenizers["spaCy senter"] = lambda t: [s.text for s in nlp_senter(t).sents]
+        except OSError:
+            pass
+    except ImportError:
+        pass
+
+    # Add stanza if available
+    try:
+        import stanza
+
+        nlp_stanza = stanza.Pipeline("en", processors="tokenize", verbose=False)
+        tokenizers["stanza"] = lambda t: [s.text for s in nlp_stanza(t).sentences]
+    except ImportError:
+        pass
 
     for case_name, text in EDGE_CASES:
         print(f"\n{case_name}: {text!r}\n")

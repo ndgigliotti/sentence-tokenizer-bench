@@ -17,6 +17,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+spacy = [
+    "spacy",
+]
+stanza = [
+    "stanza",
+]
 wtpsplit = [
     "wtpsplit",
 ]
@@ -27,5 +33,7 @@ wtpsplit-ort-gpu = [
     "wtpsplit[onnx-gpu]",
 ]
 all = [
+    "spacy",
+    "stanza",
     "wtpsplit[onnx-gpu]",
 ]
