@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sentence-tokenizer-bench"
+version = "0.1.0"
+description = "Benchmarks for sentence tokenization libraries"
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+dependencies = [
+    "blingfire",
+    "nltk",
+    "pysbd",
+    "syntok",
+]
+
+[project.optional-dependencies]
+wtpsplit = [
+    "wtpsplit",
+]
+wtpsplit-ort-cpu = [
+    "wtpsplit[onnx-cpu]",
+]
+wtpsplit-ort-gpu = [
+    "wtpsplit[onnx-gpu]",
+]
+all = [
+    "wtpsplit[onnx-gpu]",
+]
